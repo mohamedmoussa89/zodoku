@@ -17,7 +17,21 @@ const Puzzle = struct {
 
         const fh = try fs.File.openRead(path);
         defer fh.close();
+    
+        var contents = std.ArrayList(u8).init(alloc);
+        defer contents.deinit();
 
+        const fstream = &fh.inStream().stream;
+        while (true){
+          const byte = fstream.readByte() catch |err| switch (err) {
+            error.EndOfStream => {
+              break;
+            },
+            else => return err,
+          };
+          debug.warn("{c}", @bitCast(u8,byte));
+        }
+        debug.warn("\n");
         return p;
     }
 
@@ -25,5 +39,5 @@ const Puzzle = struct {
 
 pub fn main() !void {
     var alloc = debug.global_allocator;
-    const p = try Puzzle.newFromFile(alloc, "easy_puzzle1");
+    const p = try Puzzle.newFromFile(alloc, ".\\puzzles\\easy_puzzle1.txt");
 }
