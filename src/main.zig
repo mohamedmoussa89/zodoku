@@ -3,6 +3,7 @@ const fs = std.fs;
 const debug = std.debug;
 const mem = std.mem;
 const heap = std.heap;
+const fmt = std.fmt;
 
 const Puzzle = struct {
     const ALL_VALUES: u16 = (1 << 9) - 1;
@@ -18,20 +19,37 @@ const Puzzle = struct {
         const fh = try fs.File.openRead(path);
         defer fh.close();
     
-        var contents = std.ArrayList(u8).init(alloc);
-        defer contents.deinit();
+        var chunk = std.ArrayList(u8).init(alloc);
+        defer chunk.deinit();     
 
         const fstream = &fh.inStream().stream;
+
+        var row: u8 = 0;               
+        var col: u8 = 0;
+
         while (true){
           const byte = fstream.readByte() catch |err| switch (err) {
             error.EndOfStream => {
               break;
             },
             else => return err,
-          };
-          debug.warn("{c}", @bitCast(u8,byte));
-        }
-        debug.warn("\n");
+          };          
+          switch (byte) {
+            '1' ... '9' => {
+              p.values[row][col] = byte - '0';
+              col += 1;
+            },      
+            '-' => col += 1,
+            '\n' => {
+              row += 1;
+              col = 0;
+            },
+            else => continue
+          }
+          if (row == 9 or col == 0){
+            break;
+          }
+        }        
         return p;
     }
 
