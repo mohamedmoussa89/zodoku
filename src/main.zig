@@ -1,5 +1,7 @@
 const std = @import("std");
 const fs = std.fs;
+const io = std.io;
+const os = std.os;
 const debug = std.debug;
 const mem = std.mem;
 const heap = std.heap;
