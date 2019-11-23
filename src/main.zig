@@ -23,25 +23,52 @@ pub fn countBits(comptime T: type, x: T) T {
 
 const Puzzle = struct {
     const ALL_VALUES: u16 = (1 << 9) - 1;
-
     values: [9][9]u16,
 
-    pub fn newFromFile(alloc: *mem.Allocator, path: []const u8) !Puzzle {
+    fn assertValueRange(x: u16) void {
+      debug.assert(x >= 1);
+      debug.assert(x <= 9);
+    }
+
+    pub fn setValue(self: *Puzzle, row: usize, col: usize, val: u16) void {
+      assertValueRange(val);
+      const bit = shiftedBit(u16, val-1);
+      self.values[row][col] = bit;
+    }
+
+    pub fn addValue(self: *Puzzle, row: usize, col: usize, val: u16) void {
+      assertValueRange(val);
+      const bit = shiftedBit(u16, val-1);
+      self.values[row][col] |= bit;
+    }
+
+    pub fn containsValue(self: *Puzzle, row: usize, col: usize, val: u8) bool {
+      assertValueRange(val);
+      const bit = shiftedBit(u16, val-1);
+      return (self.values[row][col] & bit) > 0;
+    }
+
+    pub fn countValues(self: *Puzzle, row: usize, col: usize) u16 {
+      return countBits(u16, self.values[row][col]);
+    }
+
+    pub fn getFirstValue(self: *Puzzle, row: usize, col: usize) u16 {
+      return lowestBitIndex(u16, self.values[row][col]);
+    }
+
+    pub fn newFromFile(path: []const u8) !Puzzle {
         
         var p = Puzzle{
             .values = [_][9]u16{[_]u16{ALL_VALUES} ** 9} ** 9
         };
 
         const fh = try fs.File.openRead(path);
-        defer fh.close();
-    
-        var chunk = std.ArrayList(u8).init(alloc);
-        defer chunk.deinit();     
+        defer fh.close();  
 
         const fstream = &fh.inStream().stream;
 
-        var row: u8 = 0;               
-        var col: u8 = 0;
+        var row: usize = 0;               
+        var col: usize = 0;
 
         while (true){
           const byte = fstream.readByte() catch |err| switch (err) {
@@ -52,7 +79,7 @@ const Puzzle = struct {
           };          
           switch (byte) {
             '1' ... '9' => {
-              p.values[row][col] = byte - '0';
+              p.setValue(row, col, byte-'0');
               col += 1;
             },      
             '-' => col += 1,
