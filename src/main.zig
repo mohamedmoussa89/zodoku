@@ -5,6 +5,22 @@ const mem = std.mem;
 const heap = std.heap;
 const fmt = std.fmt;
 
+const Log2Int = std.math.Log2Int;
+
+pub fn lowestBitIndex(comptime T: type, x: T) T {
+  const lsb: T = x & (~x+1);
+  const bit_width: T = 8*@sizeOf(T);
+  return bit_width - @clz(T, x);
+}
+
+pub fn shiftedBit(comptime T: type, x: T) T {
+  return @as(T,1) << @truncate(Log2Int(T), x);
+}
+
+pub fn countBits(comptime T: type, x: T) T {
+  return @popCount(T, x);
+}
+
 const Puzzle = struct {
     const ALL_VALUES: u16 = (1 << 9) - 1;
 
