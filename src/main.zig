@@ -96,9 +96,25 @@ const Puzzle = struct {
         return p;
     }
 
+    pub fn print(self: *Puzzle, stream: *io.OutStream(os.WriteError)) !void {
+      for (self.values) |row_data, row| {
+        for (row_data) |cell, col| {
+          if (self.countValues(row, col) == 1){
+           const val = self.getFirstValue(row, col);
+           try stream.print("{} ", val);
+          }else{
+           try stream.print("- ");
+          }
+        }
+        try stream.print("\n");
+      }
+    }
+
 };
 
 pub fn main() !void {
     var alloc = debug.global_allocator;
-    const p = try Puzzle.newFromFile(alloc, ".\\puzzles\\easy_puzzle1.txt");
+    const stdout = &std.io.getStdOut().outStream().stream;
+    var p = try Puzzle.newFromFile(".\\puzzles\\easy_puzzle1.txt");    
+    try p.print(stdout);
 }
