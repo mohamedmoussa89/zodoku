@@ -46,7 +46,7 @@ const Puzzle = struct {
             },
             else => continue
           }
-          if (row == 9 or col == 0){
+          if (row == 9){
             break;
           }
         }        
