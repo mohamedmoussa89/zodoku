@@ -7,6 +7,7 @@ const mem = std.mem;
 const heap = std.heap;
 const fmt = std.fmt;
 
+
 const Log2Int = std.math.Log2Int;
 
 pub fn lowestBitIndex(comptime T: type, x: T) T {
@@ -42,6 +43,10 @@ const Puzzle = struct {
       assertValueRange(val);
       const bit = shiftedBit(u16, val-1);
       self.values[row][col] |= bit;
+    }    
+
+    pub fn removeValueSet(self: *Puzzle, row: usize, col: usize, val_set: u16) void{
+      self.values[row][col] &= ~val_set;
     }
 
     pub fn containsValue(self: *Puzzle, row: usize, col: usize, val: u8) bool {
