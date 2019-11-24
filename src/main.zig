@@ -171,15 +171,98 @@ const Puzzle = struct {
       return boxColumnStart(box) + 3;
     }
 
+    fn rowValueUnion(self: *Puzzle, row: usize) u16 {
+      var value_set: u16 = 0;
+      var col: usize = 0;
+      while (col < 9) : (col += 1){
+         if (self.countValues(row, col) == 1){
+          value_set |= self.values[row][col];
+        }
+      }
+      return value_set;
+    }
+
+    fn columnValueUnion(self: *Puzzle, col: usize) u16 {
+      var value_set: u16 = 0;
+      var row: usize = 0;
+      while (row < 9) : (row += 1){
+         if (self.countValues(row, col) == 1){
+          value_set |= self.values[row][col];
+        }
+      }
+      return value_set;
+    }
+
+    fn boxValueUnion(self: *Puzzle, box: usize) u16 {
+      var value_set: u16 = 0;
+      var row = boxRowStart(box);
+      while (row < boxRowEnd(box)) : (row += 1){
+        var col = boxColumnStart(box);
+        while (col < boxColumnEnd(box)) : (col += 1){
           if (self.countValues(row, col) == 1){
-           const val = self.getFirstValue(row, col);
-           try stream.print("{} ", val);
-          }else{
-           try stream.print("- ");
+            value_set |= self.values[row][col];
           }
         }
-        try stream.print("\n");
       }
+      return value_set;
+    }
+
+    fn constrainCell(self: *Puzzle, row: usize, col: usize, value_set: u16) bool {
+      if (self.countValues(row, col) > 1){
+        const prior = self.values[row][col];
+        self.removeValueSet(row, col, value_set);
+        return (prior ^ self.values[row][col]) > 0;
+      }
+      return false;
+    }
+
+    pub fn constrainRows(self: *Puzzle) bool {
+      var change_made = false;
+      var row: usize = 0;      
+      while (row < 9) : (row += 1){
+        const value_set = self.rowValueUnion(row);
+        var col: usize = 0;
+        while (col < 9) : (col += 1){          
+          change_made = self.constrainCell(row, col, value_set) or change_made;
+        }
+      }
+      return change_made;
+    }
+
+    pub fn constrainColumns(self: *Puzzle) bool {
+      var change_made = false;
+      var col: usize = 0;      
+      while (col < 9) : (col += 1){
+        const value_set = self.columnValueUnion(col);
+        var row: usize = 0;
+        while (row < 9) : (row += 1){
+          change_made = self.constrainCell(row, col, value_set) or change_made;
+        }
+      }
+      return change_made;
+    }
+
+    pub fn constrainBoxes(self: *Puzzle) bool {
+      var change_made = false;
+      var box: usize = 0;
+      while (box < 9) : (box += 1){
+        const value_set = self.boxValueUnion(box);
+        var row: usize = boxRowStart(box);
+        while (row < boxRowEnd(box)) : (row += 1){
+          var col = boxColumnStart(box);
+          while (col < boxColumnEnd(box)) : (col += 1){
+            change_made = self.constrainCell(row, col, value_set) or change_made;
+          }
+        }
+      }
+      return change_made;
+    }
+
+    fn constrain(self: *Puzzle) bool {
+      const r = self.constrainRows();
+      const c = self.constrainColumns();
+      const b = self.constrainBoxes();
+      return r or c or b;
     }
 
 };
@@ -187,6 +270,10 @@ const Puzzle = struct {
 pub fn main() !void {
     var alloc = debug.global_allocator;
     const stdout = &std.io.getStdOut().outStream().stream;
-    var p = try Puzzle.newFromFile(".\\puzzles\\easy_puzzle1.txt");    
+    var p = try Puzzle.newFromFile(".\\puzzles\\easy_puzzle1.txt");
     try p.print(stdout);
+    try stdout.print("\n\n");
+    while (p.constrain()){}
+    try p.print(stdout);
+    try stdout.print("\n\n");
 }
