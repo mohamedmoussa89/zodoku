@@ -161,112 +161,43 @@ const Puzzle = struct {
       return 3*(row/3) + (col/3);
     }
 
-    pub fn boxRowStart(box: usize) usize {
-      return 3*(box/3);
-    }
-
-    pub fn boxRowEnd(box: usize) usize {
-      return boxRowStart(box) + 3;
-    }
-
-    pub fn boxColumnStart(box: usize) usize {
-      return 3*(box % 3);
-    }
-
-    pub fn boxColumnEnd(box: usize) usize {
-      return boxColumnStart(box) + 3;
-    }
-
-    fn rowValueUnion(self: *Puzzle, row: usize) u16 {
-      var value_set: u16 = 0;
-      var col: usize = 0;
-      while (col < 9) : (col += 1){
-         if (self.countValues(row, col) == 1){
-          value_set |= self.values[row][col];
-        }
-      }
-      return value_set;
-    }
-
-    fn columnValueUnion(self: *Puzzle, col: usize) u16 {
-      var value_set: u16 = 0;
-      var row: usize = 0;
+    pub fn constrainInner(self: *Puzzle) bool {
+      var row_value_sets: [9]u16 = [_]u16{0} ** 9;
+      var col_value_sets: [9]u16 = [_]u16{0} ** 9;
+      var box_value_sets: [9]u16 = [_]u16{0} ** 9;
+          
+      var row: usize = 0;        
       while (row < 9) : (row += 1){
-         if (self.countValues(row, col) == 1){
-          value_set |= self.values[row][col];
-        }
-      }
-      return value_set;
-    }
-
-    fn boxValueUnion(self: *Puzzle, box: usize) u16 {
-      var value_set: u16 = 0;
-      var row = boxRowStart(box);
-      while (row < boxRowEnd(box)) : (row += 1){
-        var col = boxColumnStart(box);
-        while (col < boxColumnEnd(box)) : (col += 1){
-          if (self.countValues(row, col) == 1){
-            value_set |= self.values[row][col];
-          }
-        }
-      }
-      return value_set;
-    }
-
-    fn constrainCell(self: *Puzzle, row: usize, col: usize, value_set: u16) bool {
-      if (self.countValues(row, col) > 1){
-        const prior = self.values[row][col];
-        self.removeValueSet(row, col, value_set);
-        return (prior ^ self.values[row][col]) > 0;
-      }
-      return false;
-    }
-
-    pub fn constrainRows(self: *Puzzle) bool {
-      var change_made = false;
-      var row: usize = 0;      
-      while (row < 9) : (row += 1){
-        var value_set = self.rowValueUnion(row);
         var col: usize = 0;
-        while (col < 9) : (col += 1){          
-          change_made = self.constrainCell(row, col, value_set) or change_made;
-          if (change_made and self.countValues(row, col) == 1){
-            value_set |= self.values[row][col];
-          }
+        while (col < 9) : (col += 1){
+          if (self.countValues(row, col) == 1){
+            const box = Puzzle.boxIndex(row, col);
+            const cell = self.values[row][col];          
+            row_value_sets[row] |= cell;
+            col_value_sets[col] |= cell;
+            box_value_sets[box] |= cell;
+          }          
         }
       }
-      return change_made;
-    }
 
-    pub fn constrainColumns(self: *Puzzle) bool {
-      var change_made = false;
-      var col: usize = 0;      
-      while (col < 9) : (col += 1){
-        var value_set = self.columnValueUnion(col);
-        var row: usize = 0;
-        while (row < 9) : (row += 1){
-          change_made = self.constrainCell(row, col, value_set) or change_made;
-          if (change_made and self.countValues(row, col) == 1){
-            value_set |= self.values[row][col];
-          }
-        }
-      }
-      return change_made;
-    }
-
-    pub fn constrainBoxes(self: *Puzzle) bool {
-      var change_made = false;
-      var box: usize = 0;
-      while (box < 9) : (box += 1){
-        var value_set = self.boxValueUnion(box);
-        var row: usize = boxRowStart(box);
-        while (row < boxRowEnd(box)) : (row += 1){
-          var col = boxColumnStart(box);
-          while (col < boxColumnEnd(box)) : (col += 1){
-            change_made = self.constrainCell(row, col, value_set) or change_made;
-            if (change_made and self.countValues(row, col) == 1){
-            value_set |= self.values[row][col];
-          }
+      var change_made = false;    
+      row = 0;
+      while (row < 9) : (row += 1){
+        var col: usize = 0;
+        while (col < 9) : (col += 1){
+          if (self.countValues(row, col) > 1){
+            const box = Puzzle.boxIndex(row, col);
+            const prior = self.values[row][col];    
+            const combined_value_set = (row_value_sets[row] | col_value_sets[col] | box_value_sets[box]);
+            self.removeValueSet(row, col, combined_value_set);
+            const cell_changed = (prior ^ self.values[row][col]) > 0;
+            change_made = change_made or cell_changed;
+            if (cell_changed and self.countValues(row, col) == 1){
+              const cell = self.values[row][col]; 
+              row_value_sets[row] |= cell;
+              col_value_sets[col] |= cell;
+              box_value_sets[box] |= cell;
+            }
           }
         }
       }
@@ -274,13 +205,7 @@ const Puzzle = struct {
     }
 
     pub fn constrain(self: *Puzzle) void {
-      while (true){
-        const r = self.constrainRows();
-        const c = self.constrainColumns();
-        const b = self.constrainBoxes();
-        if (!(r or c or b)){
-          break;
-        }
+      while (self.constrainInner()){
       }      
     }
 
@@ -349,8 +274,10 @@ pub fn read() !void {
 
 pub fn main() !void {
     var alloc = debug.global_allocator;
-    const stdout = &std.io.getStdOut().outStream().stream;
+    const stdout = &std.io.getStdOut().outStream().stream;    
     var p = try Puzzle.newFromFile(".\\puzzles\\17.txt"); 
-    p = try Puzzle.solve(alloc, p);
+    try p.print(stdout);
+    try stdout.print("\n");
+    p = try Puzzle.solve(alloc, p);    
     try p.print(stdout);
 }
