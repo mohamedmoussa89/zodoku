@@ -104,8 +104,52 @@ const Puzzle = struct {
     }
 
     pub fn print(self: *Puzzle, stream: *io.OutStream(os.WriteError)) !void {
+      // Determine max width based on largest value set
+      var max_count: usize = 0;
       for (self.values) |row_data, row| {
         for (row_data) |cell, col| {
+          max_count = std.math.max(max_count, self.countValues(row, col));
+        }
+      }
+
+      const max_width = max_count+2;
+      for (self.values) |row_data, row| {
+        for (row_data) |cell, col| {          
+          // Compute left and right offsets
+          const value_count = self.countValues(row, col);
+          var left_offset = (max_width-value_count)/2;
+          var right_offset = (max_width-value_count-left_offset);
+          // Print left offset
+          while (left_offset > 0) : (left_offset -= 1){
+            try stream.print(" ");
+          }
+          // Print value set
+          var val: u8 = 1;
+          while (val <= 9) : (val += 1){
+            if (self.containsValue(row, col, val)){
+              try stream.print("{}", val);
+            }
+          }
+          // Print right offset
+          while (right_offset > 0) : (right_offset -= 1){
+            try stream.print(" ");
+          }
+          // Print column lines
+          if (col == 2 or col == 5){
+            try stream.print("|");
+          }
+        }
+        try stream.print("\n");
+        // Print row lines
+        if (row == 2 or row == 5){
+          var counter = 3*(max_width*3) + 2;
+          while (counter > 0) : (counter -= 1){
+            try stream.print("-");
+          }
+          try stream.print("\n");
+        }
+      }
+    }
           if (self.countValues(row, col) == 1){
            const val = self.getFirstValue(row, col);
            try stream.print("{} ", val);
