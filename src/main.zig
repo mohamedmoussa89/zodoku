@@ -26,6 +26,12 @@ pub fn countBits(comptime T: type, x: T) T {
 
 const Puzzle = struct {
     const ALL_VALUES: u16 = (1 << 9) - 1;
+
+    const RowCol = struct {
+      row: usize,
+      col: usize,
+    };
+
     values: [9][9]u16,
 
     fn assertValueRange(x: u16) void {
@@ -220,10 +226,13 @@ const Puzzle = struct {
       var change_made = false;
       var row: usize = 0;      
       while (row < 9) : (row += 1){
-        const value_set = self.rowValueUnion(row);
+        var value_set = self.rowValueUnion(row);
         var col: usize = 0;
         while (col < 9) : (col += 1){          
           change_made = self.constrainCell(row, col, value_set) or change_made;
+          if (change_made and self.countValues(row, col) == 1){
+            value_set |= self.values[row][col];
+          }
         }
       }
       return change_made;
@@ -233,10 +242,13 @@ const Puzzle = struct {
       var change_made = false;
       var col: usize = 0;      
       while (col < 9) : (col += 1){
-        const value_set = self.columnValueUnion(col);
+        var value_set = self.columnValueUnion(col);
         var row: usize = 0;
         while (row < 9) : (row += 1){
           change_made = self.constrainCell(row, col, value_set) or change_made;
+          if (change_made and self.countValues(row, col) == 1){
+            value_set |= self.values[row][col];
+          }
         }
       }
       return change_made;
@@ -246,34 +258,99 @@ const Puzzle = struct {
       var change_made = false;
       var box: usize = 0;
       while (box < 9) : (box += 1){
-        const value_set = self.boxValueUnion(box);
+        var value_set = self.boxValueUnion(box);
         var row: usize = boxRowStart(box);
         while (row < boxRowEnd(box)) : (row += 1){
           var col = boxColumnStart(box);
           while (col < boxColumnEnd(box)) : (col += 1){
             change_made = self.constrainCell(row, col, value_set) or change_made;
+            if (change_made and self.countValues(row, col) == 1){
+            value_set |= self.values[row][col];
+          }
           }
         }
       }
       return change_made;
     }
 
-    fn constrain(self: *Puzzle) bool {
-      const r = self.constrainRows();
-      const c = self.constrainColumns();
-      const b = self.constrainBoxes();
-      return r or c or b;
+    pub fn constrain(self: *Puzzle) void {
+      while (true){
+        const r = self.constrainRows();
+        const c = self.constrainColumns();
+        const b = self.constrainBoxes();
+        if (!(r or c or b)){
+          break;
+        }
+      }      
     }
 
+    const SolveErrors = error {
+      AllCellsFilled,
+      NoOptionsLeft,
+    };
+
+    pub fn cellWithSmallestValueSet(self: *Puzzle) !RowCol {
+      var ret_val: RowCol = RowCol{.row = 0, .col = 0};
+      var smallest_count: u16 = 10;
+      for (self.values) |row_data, row| {
+        for (row_data) |cell, col| {
+          const count = self.countValues(row, col);
+          if (count != 1 and count < smallest_count){
+            ret_val.row = row;
+            ret_val.col = col;
+            smallest_count = count;
+          }
+          if (smallest_count == 2){
+            break;
+          }
+        }
+      }
+      if (smallest_count == 10){
+        return error.AllCellsFilled;
+      } else if (smallest_count == 0){
+        return error.NoOptionsLeft;
+      } else{
+        return ret_val;
+      }
+    }
+
+    pub fn solve(allocator: *mem.Allocator, initial_puzzle: Puzzle) !Puzzle {
+      const stdout = &std.io.getStdOut().outStream().stream;
+
+      var stack = std.ArrayList(Puzzle).init(allocator);  
+      defer stack.deinit();
+
+      try stack.append(initial_puzzle);
+      while (stack.count() > 0){
+        var puzzle = stack.pop();
+        puzzle.constrain();        
+        const cell = puzzle.cellWithSmallestValueSet() catch |err| switch (err){
+          error.AllCellsFilled => return puzzle,
+          error.NoOptionsLeft => continue,
+        };
+        var val: u8 = 1;
+        while (val <= 9) : (val += 1){
+          if (puzzle.containsValue(cell.row, cell.col, val)){
+            var child_puzzle = Puzzle{.values = puzzle.values};
+            child_puzzle.setValue(cell.row, cell.col, val);
+            child_puzzle.constrain();
+            try stack.append(child_puzzle);            
+          }
+        }
+      }
+      return initial_puzzle;
+    }    
 };
+
+pub fn read() !void {
+  const stdin =  &std.io.getStdIn().inStream().stream;
+  _ = try stdin.readByte();
+}
 
 pub fn main() !void {
     var alloc = debug.global_allocator;
     const stdout = &std.io.getStdOut().outStream().stream;
-    var p = try Puzzle.newFromFile(".\\puzzles\\easy_puzzle1.txt");
+    var p = try Puzzle.newFromFile(".\\puzzles\\17.txt"); 
+    p = try Puzzle.solve(alloc, p);
     try p.print(stdout);
-    try stdout.print("\n\n");
-    while (p.constrain()){}
-    try p.print(stdout);
-    try stdout.print("\n\n");
 }
