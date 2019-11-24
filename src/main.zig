@@ -150,6 +150,27 @@ const Puzzle = struct {
         }
       }
     }
+
+    pub fn boxIndex(row: usize, col: usize) usize {
+      return 3*(row/3) + (col/3);
+    }
+
+    pub fn boxRowStart(box: usize) usize {
+      return 3*(box/3);
+    }
+
+    pub fn boxRowEnd(box: usize) usize {
+      return boxRowStart(box) + 3;
+    }
+
+    pub fn boxColumnStart(box: usize) usize {
+      return 3*(box % 3);
+    }
+
+    pub fn boxColumnEnd(box: usize) usize {
+      return boxColumnStart(box) + 3;
+    }
+
           if (self.countValues(row, col) == 1){
            const val = self.getFirstValue(row, col);
            try stream.print("{} ", val);
