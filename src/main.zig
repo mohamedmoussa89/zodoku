@@ -7,14 +7,7 @@ const mem = std.mem;
 const heap = std.heap;
 const fmt = std.fmt;
 
-
 const Log2Int = std.math.Log2Int;
-
-pub fn lowestBitIndex(comptime T: type, x: T) T {
-  const lsb: T = x & (~x+1);
-  const bit_width: T = 8*@sizeOf(T);
-  return bit_width - @clz(T, x);
-}
 
 pub fn shiftedBit(comptime T: type, x: T) T {
   return @as(T,1) << @truncate(Log2Int(T), x);
@@ -45,12 +38,6 @@ const Puzzle = struct {
       self.values[row][col] = bit;
     }
 
-    pub fn addValue(self: *Puzzle, row: usize, col: usize, val: u16) void {
-      assertValueRange(val);
-      const bit = shiftedBit(u16, val-1);
-      self.values[row][col] |= bit;
-    }    
-
     pub fn removeValueSet(self: *Puzzle, row: usize, col: usize, val_set: u16) void{
       self.values[row][col] &= ~val_set;
     }
@@ -63,10 +50,6 @@ const Puzzle = struct {
 
     pub fn countValues(self: *Puzzle, row: usize, col: usize) u16 {
       return countBits(u16, self.values[row][col]);
-    }
-
-    pub fn getFirstValue(self: *Puzzle, row: usize, col: usize) u16 {
-      return lowestBitIndex(u16, self.values[row][col]);
     }
 
     pub fn newFromFile(path: []const u8) !Puzzle {
@@ -266,11 +249,6 @@ const Puzzle = struct {
       return initial_puzzle;
     }    
 };
-
-pub fn read() !void {
-  const stdin =  &std.io.getStdIn().inStream().stream;
-  _ = try stdin.readByte();
-}
 
 pub fn main() !void {
     var alloc = debug.global_allocator;
